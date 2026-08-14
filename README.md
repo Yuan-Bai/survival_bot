@@ -124,12 +124,25 @@ venv\Scripts\python.exe shadow_price.py 40 500
 6. **网络问题**：首次装依赖建议用国内镜像 `pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt`。
 7. **框选区域保存后**：窗口位置变化不影响（按比例坐标），分辨率变化一般也不需要重框。
 
+## 免安装版（小白用）
+
+不想装 Python？用打包好的 exe 版本：
+
+- **`survival_bot_小白版.zip`（约 93MB）**：解压即用，内置 Python 运行时 + OCR 模型，无需任何安装
+- 结构：`生存大冒险bot.exe`（统一菜单）+ `_internal/`（运行时）+ `data/`（题库）+ `使用说明.txt`（三步教程+常见问题+防封号说明）
+- 双击 exe 弹出菜单：`[1] 区域框选` → `[2] 开始答题（MC）` → `[3] 简单模式` → `[q] 退出`
+- 首次使用选 `[1]` 框选 13 个区域，之后每次直接选 `[2]` 即可
+- 重新打包：`venv\Scripts\pyinstaller --noconfirm survival_bot.spec`
+
+> 杀毒软件可能对 PyInstaller 打包的 exe 误报（无签名），加入信任即可；程序源码全部开源在仓库，可自行编译核对。
+
 ## 文件结构
 
 ```
 survival_bot/
 ├─ bot.py            # 主程序（真实运行/--dry-run/--mc）
 ├─ calibrate.py      # 区域框选工具（--test 可验证 OCR）
+├─ main.py           # 统一入口菜单（exe 使用）
 ├─ mc_sim.py         # 蒙特卡洛模拟器（决策核心）
 ├─ solver.py         # 题库加载/匹配/成败判定
 ├─ ocr_engine.py     # RapidOCR 封装
@@ -137,6 +150,7 @@ survival_bot/
 ├─ shadow_price.py   # 属性影子价格分析工具
 ├─ status_ui.py      # （已弃用）状态小窗，被控制台输出取代
 ├─ run_mc.bat / run.bat / calibrate.bat / verify.bat
+├─ survival_bot.spec # PyInstaller 打包配置（单 exe）
 ├─ data/
 │  ├─ questions.json      # 41 题完整题库（题目/选项/条件/奖惩）
 │  ├─ characters.json     # 7 角色初始属性

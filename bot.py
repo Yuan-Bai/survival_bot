@@ -687,6 +687,10 @@ def main():
     if not ensure_admin():
         print('请以管理员身份重新运行（UAC 弹窗点"是"后自动继续）。')
         return
+    print('=' * 50)
+    print('【本程序完全免费】如果你是通过付费购买的，请立即退款举报！')
+    print('作者不会以任何形式收费，谨防倒卖诈骗。')
+    print('=' * 50)
     dry_run = '--dry-run' in sys.argv
     use_mc = '--mc' in sys.argv
     role_name = None

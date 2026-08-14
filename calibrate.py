@@ -401,6 +401,7 @@ def ocr_test():
 
 def main():
     set_dpi_aware()
+    print('【本程序完全免费】如果你是通过付费购买的，请立即退款举报！谨防倒卖诈骗。')
     if '--test' in sys.argv:
         ocr_test()
         return

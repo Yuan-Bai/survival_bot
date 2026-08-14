@@ -26,8 +26,11 @@ def ocr_image(img_np, scale=2, keep_ratio=False):
 
 
 def cv_resize(img_np, size):
-    import cv2
-    return cv2.resize(img_np, size, interpolation=cv2.INTER_CUBIC)
+    """图像缩放（PIL 实现，替代 opencv 以减小打包体积）"""
+    from PIL import Image
+    img = Image.fromarray(img_np)
+    img = img.resize(size, Image.BICUBIC)
+    return np.array(img)
 
 
 def crop_region(screenshot_np, region, normalized=True, win_size=(0, 0)):
@@ -73,8 +76,5 @@ def ocr_region_lines(screenshot_np, region, normalized=True, win_size=(0, 0), sc
 
 
 def preprocess_white_text(img_np):
-    """美术字预处理：放大 + 灰度 + 自适应阈值，提升识别率"""
-    import cv2
-    gray = cv2.cvtColor(img_np, cv2.COLOR_BGR2GRAY)
-    th = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15)
-    return th
+    """美术字预处理（已弃用，保留占位）"""
+    return img_np
