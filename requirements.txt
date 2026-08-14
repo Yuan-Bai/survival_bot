@@ -1,0 +1,7 @@
+rapidocr-onnxruntime==1.4.4
+rapidfuzz>=3.0
+pillow>=10.0
+pywin32>=306
+numpy>=1.26,<2
+opencv-python==4.10.0.84
+onnxruntime==1.17.3

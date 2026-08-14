@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+
+# 运行产物：日志、本机框选坐标、生成的影子价格表
+log/
+data/regions.json
+data/shadow_prices.json
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/

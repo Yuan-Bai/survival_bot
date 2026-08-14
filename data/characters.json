@@ -1,0 +1,58 @@
+{
+  "玉兔": {
+    "health": 3,
+    "power": 3,
+    "wisdom": 4,
+    "charm": 5,
+    "luck": 3,
+    "smart": 6
+  },
+  "小猪": {
+    "health": 6,
+    "power": 4,
+    "wisdom": 3,
+    "charm": 3,
+    "luck": 3,
+    "smart": 3
+  },
+  "小白": {
+    "health": 4,
+    "power": 3,
+    "wisdom": 4,
+    "charm": 4,
+    "luck": 5,
+    "smart": 4
+  },
+  "小唐": {
+    "health": 3,
+    "power": 4,
+    "wisdom": 5,
+    "charm": 5,
+    "luck": 4,
+    "smart": 3
+  },
+  "小猴": {
+    "health": 4,
+    "power": 5,
+    "wisdom": 4,
+    "charm": 3,
+    "luck": 4,
+    "smart": 4
+  },
+  "小沙": {
+    "health": 3,
+    "power": 3,
+    "wisdom": 4,
+    "charm": 3,
+    "luck": 3,
+    "smart": 6
+  },
+  "小吒": {
+    "health": 5,
+    "power": 4,
+    "wisdom": 4,
+    "charm": 4,
+    "luck": 3,
+    "smart": 4
+  }
+}
