@@ -158,10 +158,14 @@ def human_delay():
 
 
 class Bot:
-    def __init__(self, dry_run=False, use_mc=False, role_name=None):
+    def __init__(self, dry_run=False, use_mc=False, role_name=None, week_prior=0, target_tier=None):
         self.dry_run = dry_run
         self.use_mc = use_mc
         self.role_name = role_name  # 角色名（影子价格用，如 --role 小唐）
+        self.week_prior = week_prior  # 本周已累计积分（周效用决策用，0=单局积分最大化）
+        self.target_tier = target_tier  # 只在乎该档（如 620），None=均衡模式
+        import datetime
+        self._weekday = datetime.date.today().weekday()  # 0=周一..6=周日（周级投影用）
         self.db = QuestionDB()
         with open(REGIONS_FILE, encoding='utf-8') as f:
             self.regions = json.load(f)
@@ -178,6 +182,7 @@ class Bot:
         self.rem_answers = 1       # 当前阶段剩余题数（含当前题）
         self.mc_caches = None      # 蒙特卡洛题目缓存（41题条件/奖励解析）
         self.answered_ids = set()  # 本局已答题 id（模拟时同阶段排除，防重复抽题）
+        self._util_evals = None    # 最近一次决策的周效用评估（周效用模式下）
 
     def _match_text(self, a, b):
         from rapidfuzz import fuzz
@@ -305,9 +310,16 @@ class Bot:
             if self.mc_caches is None:
                 self.mc_caches = _build_cache(self.db)
             stage = self.current_stage()
-            idx, evals = mc_choose(self.db, self.pools, q, self.attrs or {}, self.score,
-                                   stage, remaining_in_stage=self.rem_answers, rollouts=1000,
-                                   exclude=self.answered_ids, caches=self.mc_caches)
+            days_left = 6 - self._weekday
+            idx, evals, util_evals = mc_choose(self.db, self.pools, q, self.attrs or {}, self.score,
+                                               stage, remaining_in_stage=self.rem_answers, rollouts=1000,
+                                               exclude=self.answered_ids, caches=self.mc_caches,
+                                               week_prior=self.week_prior, days_left=days_left,
+                                               target_tier=self.target_tier)
+            if util_evals is not None:
+                self._util_evals = util_evals
+            else:
+                self._util_evals = None
             return idx, evals
         best, reasons = choose_with_opts(self.db, q, self.attrs, opt_texts)
         return best, reasons
@@ -502,6 +514,21 @@ class Bot:
         if self.use_mc:
             evl = ' | '.join('opt%d:%.0f' % (i + 1, e) for i, e, _ in reasons)
             print('[%d] 决策(MC): 选项%d %s  (期望积分: %s)' % (round_no, idx + 1, choice, evl))
+            if self.week_prior > 0 and getattr(self, '_util_evals', None):
+                from mc_sim import week_target
+                wt = week_target(self.week_prior, self.score, self.current_stage(),
+                                 self.rem_answers, days_left=6 - self._weekday,
+                                 target_tier=self.target_tier)
+                ul = ' | '.join('opt%d:%.1f' % (i + 1, u) for i, u, _ in self._util_evals)
+                if wt:
+                    tier, base, p = wt
+                    if self.target_tier:
+                        print('[%d] 冲刺%d档(只在乎该档, 周终达档P≈%.1f%%): %s' % (
+                            round_no, tier, p * 100, ul))
+                    else:
+                        print('[%d] 冲刺%d档(保底%d, 周终达档P≈%.1f%%): %s' % (
+                            round_no, tier, base, p * 100, ul))
+                self._util_evals = None
         else:
             print('[%d] 决策: 选项%d %s  (打分明细: %s)' % (round_no, idx + 1, choice, reasons))
 
@@ -607,6 +634,47 @@ class Bot:
         with open(path, 'w', encoding='utf-8') as f:
             f.write('score=%s attrs=%s\n' % (self.score, self.attrs))
         print('日志: %s' % path)
+        if not self.dry_run and self.score > 0:
+            save_weekly_score(self.score)
+
+
+WEEKLY_FILE = os.path.join(LOG_DIR, 'weekly.json')
+
+
+def iso_week():
+    """当前 ISO 周号（周一起始，与游戏周一清零一致），形如 2026-W34"""
+    import datetime
+    today = datetime.date.today()
+    y, w, _ = today.isocalendar()
+    return '%d-W%02d' % (y, w)
+
+
+def load_weekly():
+    """读取周积分记录。返回 (本周已累计分, 数据字典)。
+    记录周号与当前周不符（已到新一周）时视为清零，返回 0。"""
+    try:
+        with open(WEEKLY_FILE, encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('week') == iso_week():
+            days = data.get('days', {})
+            return sum(days.values()), data
+    except Exception:
+        pass
+    return 0, {'week': iso_week(), 'days': {}}
+
+
+def save_weekly_score(score):
+    """把本局最终积分记入本周记录（同一天多局取最高分，跨周自动清零）。"""
+    try:
+        os.makedirs(LOG_DIR, exist_ok=True)
+        _, data = load_weekly()
+        data['week'] = iso_week()
+        today = time.strftime('%Y-%m-%d')
+        data['days'][today] = max(int(score), data.get('days', {}).get(today, 0))
+        with open(WEEKLY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+    except Exception as e:
+        print('周积分记录失败: %s' % e)
 
 
 def choose_with_opts(db, q, attrs, opt_texts):
@@ -698,6 +766,28 @@ def main():
         i = sys.argv.index('--role')
         if i + 1 < len(sys.argv):
             role_name = sys.argv[i + 1]
+    target_tier = None
+    if '--tier' in sys.argv:
+        i = sys.argv.index('--tier')
+        if i + 1 < len(sys.argv):
+            try:
+                target_tier = int(sys.argv[i + 1])
+            except ValueError:
+                target_tier = None
+
+    # 周累计积分：MC 模式下询问（回车=用本地记录，未记录过=单局模式）
+    week_prior = 0
+    if use_mc and not dry_run:
+        auto_w, _ = load_weekly()
+        if auto_w > 0:
+            hint = '（游戏内看本周积分，回车=按本地记录 %d）' % auto_w
+        else:
+            hint = '（回车=单局积分最大化模式）'
+        try:
+            s = input('本周已累计积分%s: ' % hint).strip()
+            week_prior = max(0, int(s)) if s else auto_w
+        except (EOFError, ValueError, KeyboardInterrupt):
+            week_prior = auto_w
 
     # 运行日志：stdout/stderr 同时写文件（cmd 最小化也能查）
     class Tee:
@@ -724,11 +814,23 @@ def main():
     sys.stdout = Tee(sys.stdout, logf)
     sys.stderr = Tee(sys.stderr, logf)
 
-    bot = Bot(dry_run=dry_run, use_mc=use_mc, role_name=role_name)
+    bot = Bot(dry_run=dry_run, use_mc=use_mc, role_name=role_name, week_prior=week_prior,
+              target_tier=target_tier)
     print('=' * 50)
     print('生存大冒险自动答题 bot (%s)' % ('DRY-RUN 验证模式' if dry_run else '真实运行模式'))
     if role_name:
         print('角色: %s（启用属性影子价格）' % role_name)
+    if use_mc and week_prior > 0:
+        from mc_sim import next_tier
+        nt = next_tier(week_prior)
+        gap = ('距%d档还差%d分' % nt) if nt else '全档已达成'
+        if target_tier:
+            print('冲刺模式(只在乎%d档): 本周已累计 %d 分，决策只冲 %d 档（其他档奖励不在乎）' % (
+                target_tier, week_prior, target_tier))
+        else:
+            print('周效用模式: 本周已累计 %d 分（%s），仅在周级投影临界时才按周档位决策，其余按单局积分最大化' % (week_prior, gap))
+    elif use_mc:
+        print('单局模式: 未提供周累计积分，决策按单局积分最大化')
     print('请确保: 已手动进入答题界面、窗口在前台、regions.json 已配置')
     print('运行日志: %s' % log_path)
     print('=' * 50)

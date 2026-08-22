@@ -27,7 +27,7 @@ def simulate_full_game(db, pools, cache, char_attrs, n_games=100, rollouts=1000,
             chosen = random.sample(cand, min(n_ques, len(cand)))
             for qi, q in enumerate(chosen):
                 remaining = n_ques - qi
-                idx, evals = mc_choose(db, pools, q, attrs, score, stage,
+                idx, evals, _ = mc_choose(db, pools, q, attrs, score, stage,
                                        remaining_in_stage=remaining, rollouts=rollouts,
                                        exclude=answered_ids, caches=cache)
                 answered_ids.add(q['id'])

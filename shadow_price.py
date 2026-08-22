@@ -36,7 +36,7 @@ def simulate_full_game(db, pools, cache, char_attrs, n_games=50, rollouts=500):
             cand = [q for q in pools[stage] if q['id'] not in answered_ids]
             chosen = random.sample(cand, min(n_ques, len(cand)))
             for qi, q in enumerate(chosen):
-                idx, _ = mc_choose(db, pools, q, attrs, score, stage,
+                idx, _, _ = mc_choose(db, pools, q, attrs, score, stage,
                                    remaining_in_stage=n_ques - qi, rollouts=rollouts,
                                    exclude=answered_ids, caches=cache)
                 answered_ids.add(q['id'])
